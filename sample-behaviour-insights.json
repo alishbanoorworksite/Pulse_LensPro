@@ -1,0 +1,40 @@
+{
+  "sessionId": "session_k3x9a1bz",
+  "startedAt": "2026-10-01T09:00:00.000Z",
+  "durationSeconds": 42,
+  "summary": {
+    "clicks": 2,
+    "savedMousePoints": 3,
+    "scrollEvents": 1,
+    "maxScrollDepthPct": 64,
+    "pageVisibilityChanges": 1,
+    "cardVisibilityEvents": 2
+  },
+  "clicks": [
+    {
+      "n": 1, "x": 412, "y": 238, "pageX": 412, "pageY": 238,
+      "element": "BUTTON", "id": "recordBtn", "className": "btn outline small",
+      "text": "Record session", "label": "button#recordBtn \"Record session\"",
+      "time": "2026-10-01T09:00:05.120Z"
+    },
+    {
+      "n": 2, "x": 640, "y": 510, "pageX": 640, "pageY": 1130,
+      "element": "DIV", "id": "", "className": "card wide",
+      "text": "Live session metrics", "label": "div.card \"Live session metrics\"",
+      "time": "2026-10-01T09:00:19.884Z"
+    }
+  ],
+  "mousePoints": [
+    { "pageX": 380, "pageY": 210, "clientX": 380, "clientY": 210, "viewportWidth": 1366, "viewportHeight": 768, "time": "2026-10-01T09:00:04.010Z" },
+    { "pageX": 412, "pageY": 238, "clientX": 412, "clientY": 238, "viewportWidth": 1366, "viewportHeight": 768, "time": "2026-10-01T09:00:05.070Z" },
+    { "pageX": 640, "pageY": 1130, "clientX": 640, "clientY": 510, "viewportWidth": 1366, "viewportHeight": 768, "time": "2026-10-01T09:00:19.800Z" }
+  ],
+  "scrollEvents": [
+    { "scrollY": 620, "depth": 64, "time": "2026-10-01T09:00:15.300Z" }
+  ],
+  "events": [
+    { "sessionId": "session_k3x9a1bz", "eventType": "click", "timestamp": "2026-10-01T09:00:05.120Z", "timeOffsetMs": 5120, "label": "button#recordBtn \"Record session\"", "clickNumber": 1 },
+    { "sessionId": "session_k3x9a1bz", "eventType": "element_visibility", "timestamp": "2026-10-01T09:00:15.400Z", "timeOffsetMs": 15400, "label": "Funnel panel entered viewport", "visible": true, "ratio": 0.62 },
+    { "sessionId": "session_k3x9a1bz", "eventType": "page_visibility", "timestamp": "2026-10-01T09:00:30.000Z", "timeOffsetMs": 30000, "label": "hidden", "state": "hidden" }
+  ]
+}

@@ -1,0 +1,1171 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PulseLens Pro — Real-Time Usability Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --brand:#8B5E34; --good:#C88A3D; --alert:#A8462C; --warn:#D9A441;
+    --bg-0:#F7EEE1; --bg-1:#FBF6EE; --bg-2:#F1E4D2; --line:#E6D8C3;
+    --ink-0:#3A2418; --ink-1:#6E5849; --ink-2:#9C8468;
+    --radius:16px; --font-display:'Playfair Display',serif; --font-body:'Poppins',sans-serif;
+  }
+  html[data-theme="dark"]{
+    --bg-0:#241710; --bg-1:#2C1E15; --bg-2:#38271A; --line:#4A3524;
+    --ink-0:#F7EEE1; --ink-1:#D9C4A6; --ink-2:#AC8B64;
+    --brand:#C99A66; --good:#E0AA5C; --alert:#D97C52; --warn:#F0C36D;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg-0); color:var(--ink-0); font-family:var(--font-body); min-height:100vh; overflow-x:hidden; transition:background .3s,color .3s;}
+  h1,h2{font-family:var(--font-display);}
+  #glow,#heat{position:fixed; inset:0; pointer-events:none; z-index:1;}
+  #heat{opacity:.4; mix-blend-mode:multiply;}
+  html[data-theme="dark"] #heat{mix-blend-mode:screen; opacity:.5;}
+  #rippleLayer{position:fixed; inset:0; z-index:2; pointer-events:none;}
+  .ripple{position:fixed; width:10px; height:10px; margin:-5px 0 0 -5px; border-radius:50%; background:radial-gradient(circle,var(--rc,var(--brand)),transparent 70%); animation:rip .65s ease-out forwards;}
+  @keyframes rip{ to{ transform:scale(9); opacity:0; } }
+
+  #shell{position:relative; z-index:3; max-width:1360px; margin:0 auto; padding:28px 20px 90px;}
+
+  header.top{display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:16px; flex-wrap:wrap; background:var(--bg-1); border:1px solid var(--line); border-radius:20px; padding:16px 22px;}
+  .brand{display:flex; align-items:center; gap:13px;}
+  .brand .mark{width:40px; height:40px; border-radius:12px; background:linear-gradient(135deg,var(--brand),var(--good)); box-shadow:0 8px 18px rgba(139,94,52,.35);}
+  .brand h1{font-size:20px; margin:0;} .brand p{margin:0; font-size:12px; color:var(--ink-2);}
+  #ticker{font-weight:500; font-size:12px; color:var(--brand); padding:7px 16px; border:1px solid var(--line); border-radius:999px; background:var(--bg-2);}
+  .btn{border:none; cursor:pointer; font-family:var(--font-body); font-weight:600; font-size:12.5px; letter-spacing:.02em; padding:11px 20px; border-radius:30px; transition:transform .15s, background .15s; white-space:nowrap;}
+  .btn:hover{transform:translateY(-1px);}
+  .btn.solid{background:var(--brand); color:#fff;} .btn.solid:hover{background:var(--ink-0);}
+  .btn.outline{background:transparent; border:1.5px solid var(--line); color:var(--ink-1);}
+  .btn.outline:hover{border-color:var(--brand); color:var(--brand);}
+  .btn.small{padding:8px 14px; font-size:11.5px;}
+  .btn.is-on{background:var(--alert); color:#fff;}
+  .link-btn{background:none; border:none; color:var(--brand); font-weight:600; font-size:11px; cursor:pointer;}
+
+  /* toolbar */
+  .toolbar{display:flex; flex-wrap:wrap; gap:10px; align-items:center; background:var(--bg-1); border:1px solid var(--line); border-radius:16px; padding:12px 16px; margin-bottom:16px;}
+  .toolbar input[type=text]{flex:1; min-width:160px; border:1px solid var(--line); border-radius:10px; padding:9px 12px; background:var(--bg-2); color:var(--ink-0); font-family:var(--font-body);}
+
+  .grid{display:grid; grid-template-columns:repeat(12,1fr); gap:16px;}
+  .card{grid-column:span 4; background:var(--bg-1); border:1px solid var(--line); border-radius:var(--radius); padding:20px; position:relative; overflow:hidden; box-shadow:0 6px 20px rgba(90,55,20,.06);}
+  .card.wide{grid-column:span 8;} .card.full{grid-column:span 12;} .card.narrow{grid-column:span 4;}
+  @media(max-width:980px){ .card,.card.wide,.card.full,.card.narrow{grid-column:span 12;} }
+  .card h2{font-size:15px; margin:0 0 16px; display:flex; align-items:center; gap:9px; font-weight:700;}
+  .card h2 .dot{width:7px; height:7px; border-radius:50%; background:var(--brand);}
+
+  .metric-row{display:grid; grid-template-columns:repeat(3,1fr); gap:12px;}
+  .metric{background:var(--bg-2); border-radius:12px; padding:13px; border:1px solid var(--line);}
+  .metric b{display:block; font-size:20px; font-weight:700;} .metric span{font-size:11px; color:var(--ink-2);}
+  #status[data-state="active"]{color:var(--good);} #status[data-state="idle"]{color:var(--warn);}
+
+  .gauge-wrap{display:flex; align-items:center; justify-content:center; padding:6px 0 2px;}
+  svg.gauge{width:150px; height:150px;} .gauge-bg{fill:none; stroke:var(--line); stroke-width:10;}
+  .gauge-arc{fill:none; stroke-width:10; stroke-linecap:round; transform:rotate(-90deg); transform-origin:60px 60px; stroke-dasharray:339.3; transition:stroke-dashoffset .4s ease, stroke .4s;}
+  .gauge-text{font-weight:700; font-size:32px; text-anchor:middle; fill:var(--ink-0);}
+  .gauge-label{text-align:center; font-size:11.5px; color:var(--ink-2); margin-top:-4px;}
+
+  canvas#sparkSpeed, canvas#sparkClicks{width:100%; height:56px; display:block; background:var(--bg-2); border-radius:10px; border:1px solid var(--line);}
+  .spark-label{font-size:11.5px; color:var(--ink-2); margin:10px 0 4px; font-weight:500;}
+
+  .donut{width:90px; height:90px; border-radius:50%; margin:4px auto 8px; background:conic-gradient(var(--alert) var(--pct,50%), var(--brand) 0); position:relative;}
+  .donut::after{content:''; position:absolute; inset:13px; border-radius:50%; background:var(--bg-1);}
+  #kmLabel{display:block; text-align:center; font-size:12.5px; color:var(--ink-1); font-weight:500;}
+
+  .dwellrow{display:grid; grid-template-columns:100px 1fr auto; align-items:center; gap:8px; font-size:11.5px; margin-bottom:8px; color:var(--ink-1);}
+  .dwellbar{height:7px; background:var(--bg-2); border-radius:4px; overflow:hidden;}
+  .dwellbar div{height:100%; background:linear-gradient(90deg,var(--brand),var(--good));}
+  .hint{color:var(--ink-2); font-size:12px;}
+
+  #fittsArena{position:relative; height:140px; background:var(--bg-2); border-radius:12px; border:1px solid var(--line); overflow:hidden;}
+  .fitts-target{position:absolute; border-radius:50%; border:none; background:radial-gradient(circle at 35% 30%,var(--good),var(--brand)); box-shadow:0 6px 16px rgba(139,94,52,.35); cursor:pointer;}
+  #fittsLog,#hickLog{list-style:none; margin:10px 0 0; padding:0; font-size:11.5px; color:var(--ink-1); max-height:80px; overflow:auto;}
+  #fittsLog li,#hickLog li{padding:5px 0; border-bottom:1px dashed var(--line);}
+  #hickArena{display:flex; flex-wrap:wrap; gap:8px; min-height:50px; align-items:center;}
+  .hick-choice{width:36px; height:36px; border-radius:10px; border:1px solid var(--line); background:var(--bg-2); color:var(--ink-0); font-weight:600; cursor:pointer;}
+  .hick-choice:hover{border-color:var(--alert); color:var(--alert);}
+  select#hickSelect{background:var(--bg-2); color:var(--ink-0); border:1px solid var(--line); border-radius:10px; padding:7px 12px; margin-bottom:10px;}
+
+  #millerDisplay{font-weight:700; font-size:36px; text-align:center; letter-spacing:6px; padding:12px 0; color:var(--brand);}
+  #millerInput{width:100%; background:var(--bg-2); border:1px solid var(--line); border-radius:10px; padding:9px; color:var(--ink-0); text-align:center;}
+  #millerResult{font-size:11.5px; color:var(--ink-2); margin-top:8px; min-height:16px;}
+
+  #alertBox[hidden]{display:none;}
+  #alertBox{position:fixed; top:18px; left:50%; transform:translateX(-50%); z-index:40; color:#fff; font-weight:600; padding:10px 20px; border-radius:999px; box-shadow:0 10px 26px rgba(0,0,0,.25); font-size:13px; background:var(--alert);}
+  #alertBox[data-kind="good"]{background:var(--good);}
+
+  #log{list-style:none; margin:0; padding:0; max-height:200px; overflow:auto; font-size:12px;}
+  #log li{display:flex; gap:12px; padding:7px 0; border-bottom:1px solid var(--line); color:var(--ink-1);}
+  #log .t{color:var(--ink-2); min-width:44px; font-weight:600;}
+
+  /* map tabs */
+  .map-tabs{display:flex; gap:6px; margin-bottom:10px;}
+  .map-tabs button{background:var(--bg-2); border:1px solid var(--line); border-radius:8px; padding:6px 12px; font-size:11.5px; font-weight:600; color:var(--ink-1); cursor:pointer;}
+  .map-tabs button.active{background:var(--brand); color:#fff; border-color:var(--brand);}
+  .map-note{font-size:11px; color:var(--ink-2); margin-top:8px;}
+
+  /* timeline */
+  #timeline{position:relative; height:26px; background:var(--bg-2); border-radius:8px; border:1px solid var(--line); margin-top:6px;}
+  .tl-tag{position:absolute; top:-3px; width:2px; height:32px; background:var(--alert);}
+  .tl-clip{position:absolute; top:4px; height:18px; background:rgba(139,94,52,.35); border-radius:4px;}
+  #clipList{list-style:none; margin:10px 0 0; padding:0; font-size:11.5px;}
+  #clipList li{display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px dashed var(--line); color:var(--ink-1);}
+
+  /* replay */
+  #replayArena{position:relative; height:160px; background:var(--bg-2); border-radius:12px; border:1px solid var(--line); overflow:hidden;}
+  #replayDot{position:absolute; width:14px; height:14px; margin:-7px 0 0 -7px; border-radius:50%; background:var(--brand); box-shadow:0 0 0 4px rgba(139,94,52,.25);}
+  #replayTrack{height:6px; background:var(--bg-2); border-radius:4px; margin-top:10px; overflow:hidden; border:1px solid var(--line);}
+  #replayProgress{height:100%; width:0%; background:var(--good);}
+  .replay-controls{display:flex; gap:8px; align-items:center; margin-top:10px;}
+  select#replaySpeed{background:var(--bg-2); border:1px solid var(--line); border-radius:8px; padding:6px 10px; color:var(--ink-0);}
+
+  /* funnel */
+  .funnel-row{display:grid; grid-template-columns:90px 1fr 30px; align-items:center; gap:8px; font-size:11.5px; margin-bottom:8px; color:var(--ink-1); text-transform:capitalize;}
+  .funnel-bar{height:14px; background:var(--bg-2); border-radius:6px; overflow:hidden;}
+  .funnel-bar div{height:100%; background:linear-gradient(90deg,var(--brand),var(--warn));}
+
+  /* demo form */
+  .demo-form{display:grid; gap:10px; margin-top:14px;}
+  .demo-form input, .demo-form textarea{border:1px solid var(--line); border-radius:10px; padding:10px 12px; background:var(--bg-2); color:var(--ink-0); font-family:var(--font-body);}
+  .demo-form textarea{resize:vertical; min-height:60px;}
+
+  /* modals */
+  .modal-overlay{position:fixed; inset:0; background:rgba(58,36,24,.45); z-index:50; display:flex; align-items:center; justify-content:center; padding:20px;}
+  .modal-overlay[hidden]{display:none;}
+  .modal{background:var(--bg-1); border-radius:18px; padding:26px; max-width:380px; width:100%; box-shadow:0 20px 50px rgba(0,0,0,.25);}
+  .modal h3{margin:0 0 10px; font-family:var(--font-display);}
+  .modal p{font-size:13px; color:var(--ink-1); margin-bottom:16px;}
+  .stars{display:flex; gap:6px; margin-bottom:12px;}
+  .stars label{cursor:pointer; font-size:22px; color:var(--line);}
+  .stars input{display:none;}
+  .stars input:checked ~ label, .stars label:hover{color:var(--warn);}
+  .modal-actions{display:flex; gap:10px; justify-content:flex-end; margin-top:14px;}
+
+  /* chat panel */
+  #chatPanel{position:fixed; bottom:20px; right:20px; width:280px; background:var(--bg-1); border:1px solid var(--line); border-radius:16px; box-shadow:0 16px 40px rgba(0,0,0,.2); z-index:45; transform:translateY(calc(100% + 20px)); opacity:0; pointer-events:none; transition:transform .25s ease, opacity .25s ease;}
+  #chatPanel.open{transform:translateY(0); opacity:1; pointer-events:auto;}
+  .chat-head{padding:12px 16px; border-bottom:1px solid var(--line); font-weight:600; font-size:13px;}
+  #chatLog{height:200px; overflow-y:auto; padding:12px 16px; display:flex; flex-direction:column; gap:8px;}
+  .chat-msg{font-size:12.5px; padding:8px 12px; border-radius:12px; max-width:85%;}
+  .chat-msg.you{align-self:flex-end; background:var(--brand); color:#fff;}
+  .chat-msg.agent{align-self:flex-start; background:var(--bg-2); color:var(--ink-0);}
+  #chatForm{display:flex; gap:6px; padding:10px; border-top:1px solid var(--line);}
+  #chatForm input{flex:1; border:1px solid var(--line); border-radius:10px; padding:8px 10px; background:var(--bg-2);}
+  #chatToggle{position:fixed; bottom:20px; right:20px; z-index:46;}
+  #chatPanel.open ~ #chatToggle{display:none;}
+
+  /* feedback floating button */
+  #feedbackBtn{position:fixed; bottom:20px; left:20px; z-index:46;}
+
+  /* camera panel */
+  .camera-wrap{display:flex; gap:14px; align-items:flex-start; flex-wrap:wrap;}
+  #cameraVideo{width:180px; height:135px; border-radius:12px; background:var(--bg-2); border:1px solid var(--line); object-fit:cover;}
+  .camera-info{flex:1; min-width:160px;}
+  #cameraExpr{font-weight:600; font-size:13px; margin-bottom:6px; text-transform:capitalize;}
+  .camera-bar{height:8px; background:var(--bg-2); border-radius:4px; overflow:hidden; margin-bottom:8px;}
+  #cameraBar{height:100%; width:0%; background:linear-gradient(90deg,var(--brand),var(--good));}
+  #cameraStatus{font-size:11.5px; color:var(--ink-2);}
+  .privacy-note{font-size:10.5px; color:var(--ink-2); margin-top:8px;}
+
+  /* ===== Behaviour Insights add-on (ported from index.html) — fully scoped with bh- prefix ===== */
+  #bhLayer{position:absolute; left:0; top:0; z-index:4; pointer-events:none; overflow:visible;}
+  #bhCanvas{position:absolute; left:0; top:0; pointer-events:none;}
+  .bh-dot,.bh-sc{position:absolute; pointer-events:none;}
+  .bh-dot{width:15px; height:15px; margin:-7px 0 0 -7px; border-radius:50%; background:var(--brand); border:1px solid #fff; box-shadow:0 0 0 6px rgba(139,94,52,.22);}
+  .bh-dot span{position:absolute; left:16px; top:-13px; font-size:11px; font-weight:700; background:var(--bg-1); color:var(--ink-0); border:1px solid var(--line); border-radius:5px; padding:0 5px; white-space:nowrap;}
+  .bh-sc{width:10px; height:10px; margin:-5px; border-radius:50%; background:var(--alert); border:2px solid #fff; box-shadow:0 0 4px #333;}
+  #bhCard .bh-stats{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:14px;}
+  #bhCard .bh-actions{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px;}
+  #bhCard .bh-actions .btn.is-on{background:var(--brand); color:#fff;}
+  #bhLog{max-height:200px; overflow:auto; background:var(--bg-2); border:1px solid var(--line); border-radius:12px; padding:10px 12px; font:12px/1.5 ui-monospace,monospace; color:var(--ink-1);}
+  #bhLog div{border-bottom:1px solid var(--line); padding:3px 0; overflow-wrap:anywhere;}
+  #bhJson{width:100%; min-height:160px; margin-top:12px; padding:10px; border:1px solid var(--line); border-radius:12px; background:var(--bg-2); color:var(--ink-0); font:12px ui-monospace,monospace;}
+  #bhDialog{border:0; border-radius:18px; padding:0; width:min(520px,94vw); max-height:85vh; overflow:auto; background:var(--bg-1); color:var(--ink-0); box-shadow:0 20px 60px #0006;}
+  #bhDialog::backdrop{background:#100b0799;}
+  #bhDialog .bh-in{padding:22px;}
+  #bhDialog .bh-sum{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:12px 0;}
+  #bhDialog table{width:100%; border-collapse:collapse; font-size:13px;}
+  #bhDialog td,#bhDialog th{text-align:left; padding:8px; border-bottom:1px solid var(--line); overflow-wrap:anywhere;}
+  #bhDialog .bh-tw{max-height:220px; overflow:auto; border:1px solid var(--line); border-radius:10px;}
+  #bhDialog .bh-end{display:flex; justify-content:flex-end; gap:8px; margin-top:14px;}
+  @media(max-width:700px){ #bhCard .bh-stats{grid-template-columns:repeat(2,1fr);} }
+</style>
+</head>
+<body>
+
+<canvas id="heat"></canvas>
+<canvas id="glow"></canvas>
+<div id="rippleLayer"></div>
+<div id="alertBox" hidden></div>
+
+<div id="shell">
+
+  <header class="top">
+    <div class="brand">
+      <div class="mark"></div>
+      <div><h1>PulseLens Pro</h1><p>Real-time usability &amp; HCI instrumentation</p></div>
+    </div>
+    <span id="ticker">● session started</span>
+    <div style="display:flex; gap:10px;">
+      <button id="themeBtn" class="btn outline">Dark mode</button>
+      <button id="exportBtn" class="btn solid">Export session JSON</button>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <button id="recordBtn" class="btn outline small">⏺ Record session</button>
+    <input id="tagInput" type="text" placeholder="Tag this moment…">
+    <button id="tagBtn" class="btn outline small">🏷 Tag moment</button>
+    <button id="clipBtn" class="btn outline small">✂ Mark clip start</button>
+    <button id="transcribeBtn" class="btn outline small">● Start transcription</button>
+  </div>
+
+  <section class="grid">
+
+    <div class="card wide" data-track="Metrics panel">
+      <h2><span class="dot"></span>Live session metrics</h2>
+      <div class="metric-row">
+        <div class="metric"><b id="time">0:00</b><span>Elapsed</span></div>
+        <div class="metric"><b id="status" data-state="active">Active</b><span>Attention state</span></div>
+        <div class="metric"><b id="clicks">0</b><span>Total clicks</span></div>
+        <div class="metric"><b id="rage">0</b><span>Rage clicks</span></div>
+        <div class="metric"><b id="dead">0</b><span>Dead clicks</span></div>
+        <div class="metric"><b id="scroll">0%</b><span>Max scroll depth</span></div>
+        <div class="metric"><b id="distance">0 px</b><span>Cursor travel</span></div>
+        <div class="metric"><b id="jitter">0</b><span>Direction changes</span></div>
+        <div class="metric">
+          <div class="donut" id="kmDonut"></div>
+          <span id="kmLabel">0% keyboard</span>
+        </div>
+      </div>
+      <div class="spark-label">Cursor speed (px/s)</div>
+      <canvas id="sparkSpeed" width="600" height="56"></canvas>
+      <div class="spark-label">Clicks per interval</div>
+      <canvas id="sparkClicks" width="600" height="56"></canvas>
+    </div>
+
+    <div class="card narrow" data-track="Usability score">
+      <h2><span class="dot"></span>Usability score</h2>
+      <div class="gauge-wrap">
+        <svg class="gauge" viewBox="0 0 120 120">
+          <circle class="gauge-bg" cx="60" cy="60" r="54"></circle>
+          <circle id="gaugeArc" class="gauge-arc" cx="60" cy="60" r="54"></circle>
+          <text id="gaugeText" class="gauge-text" x="60" y="68">100</text>
+        </svg>
+      </div>
+      <p class="gauge-label">Rage/dead clicks, jitter &amp; idle time all count against the score</p>
+    </div>
+
+    <div class="card full" data-track="Interaction maps">
+      <h2><span class="dot"></span>Interaction maps</h2>
+      <div class="map-tabs" id="mapTabs">
+        <button data-map="move" class="active">Mouse-movement heatmap</button>
+        <button data-map="click">Click map</button>
+        <button data-map="scroll">Scroll-depth map</button>
+      </div>
+      <p class="map-note">Rendered live onto the full-page canvas behind this dashboard — move your cursor, click around, and scroll to populate it. Switch tabs to change which layer is drawn.</p>
+    </div>
+
+    <div class="card narrow" data-track="Attention panel">
+      <h2><span class="dot"></span>Attention (dwell time)</h2>
+      <div id="dwellList"></div>
+    </div>
+
+    <div class="card narrow" data-track="Session replay">
+      <h2><span class="dot"></span>Session replay</h2>
+      <div id="replayArena"><div id="replayDot" style="left:-20px;"></div></div>
+      <div id="replayTrack"><div id="replayProgress"></div></div>
+      <div class="replay-controls">
+        <button id="replayPlayBtn" class="btn outline small">▶ Play full session</button>
+        <select id="replaySpeed">
+          <option value="1">1×</option><option value="2">2×</option><option value="4">4×</option>
+        </select>
+      </div>
+      <ul id="clipList"></ul>
+    </div>
+
+    <div class="card narrow" data-track="Funnel panel">
+      <h2><span class="dot"></span>Funnel drop-off</h2>
+      <div id="funnelChart"></div>
+      <p class="hint" style="margin-top:8px;">Aggregated across visits to this page on this device (localStorage demo — point it at a shared database for cross-user funnels).</p>
+    </div>
+
+    <div class="card narrow" data-track="Fitts panel">
+      <h2><span class="dot"></span>Fitts's Law — target acquisition</h2>
+      <div id="fittsArena"></div>
+      <ul id="fittsLog"></ul>
+    </div>
+
+    <div class="card narrow" data-track="Hick panel">
+      <h2><span class="dot"></span>Hick's Law — decision time</h2>
+      <select id="hickSelect">
+        <option value="2">2 options</option><option value="4" selected>4 options</option>
+        <option value="8">8 options</option><option value="16">16 options</option>
+      </select>
+      <div id="hickArena"></div>
+      <ul id="hickLog"></ul>
+    </div>
+
+    <div class="card narrow" data-track="Miller panel">
+      <h2><span class="dot"></span>Miller's Law — working memory span</h2>
+      <div id="millerDisplay">—</div>
+      <input id="millerInput" placeholder="Type the digits…" disabled>
+      <div style="display:flex; gap:8px; margin-top:10px;">
+        <button id="millerStart" class="btn outline" style="flex:1;">Start test</button>
+        <button id="millerSubmit" class="btn solid" style="flex:1;" disabled>Submit</button>
+      </div>
+      <p id="millerResult"></p>
+    </div>
+
+    <div class="card wide" data-track="Camera insights" data-funnel-step="camera">
+      <h2><span class="dot"></span>Camera insights (optional, best-effort)</h2>
+      <div class="camera-wrap">
+        <video id="cameraVideo" muted playsinline></video>
+        <div class="camera-info">
+          <div id="cameraExpr">No camera yet</div>
+          <div class="camera-bar"><div id="cameraBar"></div></div>
+          <div id="cameraStatus"></div>
+          <button id="cameraBtn" class="btn outline small" style="margin-top:8px;">Enable camera insights</button>
+          <p class="privacy-note">Runs a small facial-expression model (face-api.js) fully in this browser tab. Nothing is recorded, saved, or sent anywhere. Requires camera permission and a successful model download from its CDN — if either fails, you'll just see the preview.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card wide" data-track="Form analytics" data-funnel-step="form">
+      <h2><span class="dot"></span>Form field analytics</h2>
+      <div id="formAnalytics"></div>
+      <form class="demo-form" data-analytics-form>
+        <input name="name" type="text" placeholder="Full name" required>
+        <input name="email" type="email" placeholder="Email address" required>
+        <textarea name="message" placeholder="What are you trying to do today?"></textarea>
+        <button type="submit" class="btn solid" style="justify-self:start;">Submit demo form</button>
+      </form>
+    </div>
+
+    <div class="card wide" data-track="Transcript panel">
+      <h2><span class="dot"></span>Automated transcription</h2>
+      <p class="hint">Uses your browser's built-in speech recognition (Chrome/Edge). Audio is processed by the browser — nothing is uploaded by this page.</p>
+      <div id="transcriptBox"></div>
+    </div>
+
+    <div class="card full" data-track="Event log">
+      <h2><span class="dot"></span>Event log</h2>
+      <div id="timeline"></div>
+      <ul id="log"></ul>
+    </div>
+
+
+    <div class="card full" id="bhCard" data-track="Behaviour insights">
+      <h2><span class="dot"></span>Behaviour insights — page-level clicks, paths &amp; visibility</h2>
+      <div class="bh-stats">
+        <div class="metric"><b id="bhTotal">0</b><span>Insight events</span></div>
+        <div class="metric"><b id="bhClicks">0</b><span>Clicks (page coords)</span></div>
+        <div class="metric"><b id="bhMoves">0</b><span>Saved mouse points</span></div>
+        <div class="metric"><b id="bhScrolls">0</b><span>Scroll events</span></div>
+        <div class="metric"><b id="bhDepth">0%</b><span>Max scroll depth</span></div>
+        <div class="metric"><b id="bhPageVis">0</b><span>Page visibility changes</span></div>
+        <div class="metric"><b id="bhElVis">0</b><span>Card visibility events</span></div>
+        <div class="metric"><b id="bhLast" style="font-size:13px;overflow-wrap:anywhere;">—</b><span>Last clicked element</span></div>
+      </div>
+      <div class="bh-actions">
+        <button class="btn solid small" id="bhSummary" type="button">Submit / View summary</button>
+        <button class="btn outline small" id="bhDots" type="button">Show click dots</button>
+        <button class="btn outline small" id="bhScatter" type="button">Click scatter</button>
+        <button class="btn outline small" id="bhPath" type="button">Show mouse path</button>
+        <button class="btn outline small" id="bhClear" type="button">Clear visuals</button>
+        <button class="btn outline small" id="bhUndo" type="button">Undo last click</button>
+        <button class="btn outline small" id="bhView" type="button">View data</button>
+        <button class="btn outline small" id="bhExport" type="button">Export insights JSON</button>
+        <button class="btn outline small" id="bhReset" type="button" style="color:var(--alert);">Reset insights</button>
+      </div>
+      <div id="bhLog" aria-live="polite">Insights tracker initialized.</div>
+      <textarea id="bhJson" readonly placeholder="Choose View data to display collected insight data as JSON."></textarea>
+    </div>
+  </section>
+</div>
+
+<!-- exit-intent modal -->
+<div class="modal-overlay" id="exitModal" hidden>
+  <div class="modal">
+    <h3>Before you go…</h3>
+    <p>We noticed you're heading for the tab bar. Got 10 seconds for quick feedback?</p>
+    <div class="modal-actions">
+      <button class="btn outline" id="exitDismiss">Not now</button>
+      <button class="btn solid" onclick="document.getElementById('exitModal').hidden=true; document.getElementById('feedbackModal').hidden=false;">Give feedback</button>
+    </div>
+  </div>
+</div>
+
+<!-- feedback modal -->
+<div class="modal-overlay" id="feedbackModal" hidden>
+  <div class="modal">
+    <h3>Quick feedback</h3>
+    <form id="feedbackForm">
+      <div class="stars">
+        <input type="radio" name="rating" id="r5" value="5"><label for="r5">★</label>
+        <input type="radio" name="rating" id="r4" value="4"><label for="r4">★</label>
+        <input type="radio" name="rating" id="r3" value="3" checked><label for="r3">★</label>
+        <input type="radio" name="rating" id="r2" value="2"><label for="r2">★</label>
+        <input type="radio" name="rating" id="r1" value="1"><label for="r1">★</label>
+      </div>
+      <textarea placeholder="Anything you'd like to tell us?" style="width:100%; min-height:70px; border:1px solid var(--line); border-radius:10px; padding:10px; background:var(--bg-2); color:var(--ink-0); font-family:var(--font-body);"></textarea>
+      <div class="modal-actions">
+        <button type="button" class="btn outline" id="feedbackCancel">Cancel</button>
+        <button type="submit" class="btn solid">Send feedback</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- feedback + chat floating controls -->
+<button id="feedbackBtn" class="btn solid">💬 Feedback</button>
+<button id="chatToggle" class="btn solid">Live chat</button>
+<div id="chatPanel">
+  <div class="chat-head">Live chat (local demo)</div>
+  <div id="chatLog"></div>
+  <form id="chatForm"><input id="chatInput" type="text" placeholder="Type a message…"></form>
+</div>
+
+
+<div id="bhLayer" aria-hidden="true"><canvas id="bhCanvas"></canvas></div>
+<dialog id="bhDialog"><div class="bh-in">
+  <h2 style="margin:0 0 4px;">Behaviour summary</h2>
+  <div class="bh-sum">
+    <div class="metric"><b id="bsClicks">0</b><span>Clicks</span></div>
+    <div class="metric"><b id="bsMoves">0</b><span>Mouse points</span></div>
+    <div class="metric"><b id="bsScrolls">0</b><span>Scrolls</span></div>
+    <div class="metric"><b id="bsDepth">0%</b><span>Scroll depth</span></div>
+    <div class="metric"><b id="bsTime">0s</b><span>Time on page</span></div>
+    <div class="metric"><b id="bsRate">0</b><span>Clicks/min</span></div>
+  </div>
+  <h3 style="font-size:14px;">Most-clicked elements</h3>
+  <div class="bh-tw"><table><thead><tr><th>Element</th><th>Clicks</th></tr></thead><tbody id="bsRows"></tbody></table></div>
+  <div class="bh-end"><button class="btn outline small" id="bsExport" type="button">Export JSON</button><button class="btn solid small" id="bsClose" type="button">Close</button></div>
+</div></dialog>
+<script>
+/**
+ * tracker.js — PulseLens Pro: Real-Time Usability Tracker engine
+ * Extends the base engine with: recording/tagging/clips, session replay,
+ * dead-click detection, form field analytics, exit-intent, funnel drop-off,
+ * click-map vs. move-heatmap vs. scroll-depth-map, live chat panel (local
+ * demo — wire a WebSocket for real multi-user chat), a feedback widget,
+ * speech-to-text transcription (Web Speech API, Chrome-only), and an
+ * optional, best-effort webcam facial-expression module (face-api.js,
+ * loaded from a CDN — degrades gracefully if it can't load or camera
+ * access is denied). Everything below runs entirely in this one browser
+ * tab; nothing is uploaded anywhere.
+ */
+const UsabilityTracker = (() => {
+  const state = {
+    startTime: performance.now(), lastActivity: performance.now(),
+    clicks: [], deadClicks: 0, rageClicks: 0, scrollMaxPct: 0, mouseDistancePx: 0,
+    lastMouse: null, idle: false, fitts: [], hick: [], events: [],
+    keyboardEvents: 0, mouseEvents: 0, directionChanges: 0, lastAngle: null,
+    speedHistory: new Array(40).fill(0), cpsHistory: new Array(40).fill(0),
+    cpsBucket: 0, dwell: {}, hoverStart: {},
+    heatCols: 48, heatRows: 28, moveGrid: null, clickGrid: null,
+    scrollBuckets: new Array(40).fill(0), lastScrollBucket: null, lastScrollTick: null,
+    miller: { level: 3, best: 0, stage: 'idle', sequence: [] },
+    score: 100,
+    recording: false, recordedEvents: [], tags: [], clips: [], clipOpenStart: null,
+    replay: { playing: false, idx: 0, speed: 1, raf: null },
+    formFields: {}, feedback: [], exitIntentShown: false,
+    chatMessages: [], transcript: [], camera: { active: false, expression: null }
+  };
+  state.moveGrid = new Uint16Array(state.heatCols * state.heatRows);
+  state.clickGrid = new Uint16Array(state.heatCols * state.heatRows);
+
+  const els = {};
+  const RAGE_WINDOW_MS = 600, RAGE_RADIUS_PX = 40, IDLE_MS = 5000;
+  const INTERACTIVE_SEL = 'a,button,input,select,textarea,[role="button"],[data-track],[data-funnel-step],label,summary';
+
+  const fmtTime = ms => { const s = Math.floor(Math.max(0,ms)/1000); return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; };
+  const now = () => performance.now();
+
+  function logEvent(label){ state.events.unshift({label,t:now()}); state.events=state.events.slice(0,60); renderLog(); renderTicker(label); }
+  function renderLog(){ if(!els.log) return; els.log.innerHTML = state.events.map(e=>`<li><span class="t">${fmtTime(e.t-state.startTime)}</span>${e.label}</li>`).join(''); }
+  function renderTicker(label){ if(!els.ticker) return; els.ticker.textContent = '● '+label; }
+
+  function markActivity(){ state.lastActivity=now(); if(state.idle){state.idle=false; logEvent('Activity resumed');} }
+
+  function record(type, extra){
+    if(!state.recording) return;
+    state.recordedEvents.push({ type, t: now()-state.startTime, ...extra });
+  }
+
+  // ---------------------------------------------------------------
+  // Heat grids: separate click-map vs. move-heatmap vs. scroll-depth-map
+  // ---------------------------------------------------------------
+  function gridAdd(grid,x,y,weight){
+    const cx = Math.min(state.heatCols-1, Math.max(0, Math.floor((x/window.innerWidth)*state.heatCols)));
+    const cy = Math.min(state.heatRows-1, Math.max(0, Math.floor((y/window.innerHeight)*state.heatRows)));
+    grid[cy*state.heatCols+cx] += weight;
+  }
+  function heatColor(t){ const hue = 30 - 30*t; return `hsla(${hue},80%,45%,${0.12+0.55*t})`; }
+  function renderGrid(canvas, grid){
+    if(!canvas) return; const ctx = canvas.getContext('2d');
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    let max=1; for(const v of grid) if(v>max) max=v;
+    const cw = canvas.width/state.heatCols, ch = canvas.height/state.heatRows;
+    for(let r=0;r<state.heatRows;r++) for(let c=0;c<state.heatCols;c++){
+      const v = grid[r*state.heatCols+c]; if(!v) continue;
+      ctx.fillStyle = heatColor(Math.min(1, v/max));
+      ctx.fillRect(c*cw, r*ch, cw+1, ch+1);
+    }
+  }
+  let activeMap = 'move';
+  function setActiveMap(which){ activeMap=which; renderMapTabs(); renderActiveMap(); }
+  function renderMapTabs(){
+    if(!els.mapTabs) return;
+    [...els.mapTabs.children].forEach(btn=> btn.classList.toggle('active', btn.dataset.map===activeMap));
+  }
+  function renderActiveMap(){
+    if(!els.heat) return;
+    if(activeMap==='move') renderGrid(els.heat, state.moveGrid);
+    else if(activeMap==='click') renderGrid(els.heat, state.clickGrid);
+    else renderScrollMap(els.heat);
+  }
+  function renderScrollMap(canvas){
+    const ctx=canvas.getContext('2d'); ctx.clearRect(0,0,canvas.width,canvas.height);
+    const max=Math.max(1,...state.scrollBuckets);
+    const bw = canvas.width/state.scrollBuckets.length;
+    state.scrollBuckets.forEach((v,i)=>{
+      if(!v) return;
+      ctx.fillStyle = heatColor(Math.min(1,v/max));
+      ctx.fillRect(0, i*(canvas.height/state.scrollBuckets.length), canvas.width, canvas.height/state.scrollBuckets.length+1);
+    });
+  }
+
+  // ---------------------------------------------------------------
+  // Mouse tracking, velocity, jitter
+  // ---------------------------------------------------------------
+  function onMouseMove(e){
+    markActivity(); state.mouseEvents++;
+    const t = now();
+    if(state.lastMouse){
+      const dx=e.clientX-state.lastMouse.x, dy=e.clientY-state.lastMouse.y;
+      const dist=Math.hypot(dx,dy); state.mouseDistancePx+=dist;
+      if(dist>3){
+        const angle=Math.atan2(dy,dx);
+        if(state.lastAngle!==null){
+          let diff=Math.abs(angle-state.lastAngle); if(diff>Math.PI) diff=2*Math.PI-diff;
+          if(diff>2.0) state.directionChanges++;
+        }
+        state.lastAngle=angle;
+      }
+      const dt=Math.max(1,t-state.lastMouse.t); state._curSpeed = dist/dt*1000;
+    }
+    state.lastMouse={x:e.clientX,y:e.clientY,t};
+    gridAdd(state.moveGrid, e.clientX, e.clientY, 1);
+    drawCursorGlow(e.clientX,e.clientY);
+    record('move', {x:e.clientX,y:e.clientY});
+    checkExitIntent(e);
+  }
+  let glowCtx=null;
+  function drawCursorGlow(x,y){ if(!glowCtx) return; const g=glowCtx.createRadialGradient(x,y,0,x,y,18); g.addColorStop(0,'rgba(139,94,52,.45)'); g.addColorStop(1,'rgba(139,94,52,0)'); glowCtx.fillStyle=g; glowCtx.beginPath(); glowCtx.arc(x,y,18,0,7); glowCtx.fill(); }
+  function fadeGlow(){ if(!glowCtx||!els.glow) return; glowCtx.fillStyle='rgba(247,238,225,0.14)'; glowCtx.fillRect(0,0,els.glow.width,els.glow.height); }
+
+  // ---------------------------------------------------------------
+  // Clicks: rage-click + dead-click detection
+  // ---------------------------------------------------------------
+  function onClick(e){
+    markActivity();
+    const t=now();
+    state.clicks.push({x:e.clientX,y:e.clientY,t}); state.cpsBucket++;
+    gridAdd(state.clickGrid, e.clientX, e.clientY, 8);
+
+    const recent=state.clicks.filter(c=> t-c.t<=RAGE_WINDOW_MS && Math.hypot(c.x-e.clientX,c.y-e.clientY)<=RAGE_RADIUS_PX);
+    if(recent.length>=3){ state.rageClicks++; showAlert('Rage-click cluster detected — frustration signal', 'alert'); logEvent('⚠ Rage click detected'); }
+
+    const isInteractive = e.target.closest(INTERACTIVE_SEL);
+    if(!isInteractive){
+      state.deadClicks++;
+      logEvent('Dead click — non-interactive element clicked');
+    }
+
+    spawnRipple(e.clientX,e.clientY);
+    record('click', {x:e.clientX,y:e.clientY, dead: !isInteractive});
+    renderMetrics();
+  }
+  function spawnRipple(x,y,color){ if(!els.rippleLayer) return; const r=document.createElement('div'); r.className='ripple'; if(color) r.style.setProperty('--rc',color); r.style.left=x+'px'; r.style.top=y+'px'; els.rippleLayer.appendChild(r); setTimeout(()=>r.remove(),650); }
+  function showAlert(msg, kind){ if(!els.alertBox) return; els.alertBox.textContent=msg; els.alertBox.dataset.kind=kind||'alert'; els.alertBox.hidden=false; clearTimeout(showAlert._t); showAlert._t=setTimeout(()=>{els.alertBox.hidden=true;},2600); }
+
+  // ---------------------------------------------------------------
+  // Scroll depth (+ time-weighted attention map) & keys
+  // ---------------------------------------------------------------
+  function onScroll(){
+    markActivity();
+    const d=document.documentElement; const sc=d.scrollHeight-d.clientHeight;
+    const pct= sc>0? Math.round((d.scrollTop/sc)*100):100;
+    state.scrollMaxPct=Math.max(state.scrollMaxPct,pct);
+    const bucket=Math.min(state.scrollBuckets.length-1, Math.floor(pct/100*state.scrollBuckets.length));
+    state.lastScrollBucket=bucket;
+    record('scroll', {pct});
+    renderMetrics();
+  }
+  function tickScrollDwell(){
+    if(state.lastScrollBucket==null) return;
+    state.scrollBuckets[state.lastScrollBucket]+=1;
+  }
+  function onKey(){ markActivity(); state.keyboardEvents++; renderMetrics(); }
+
+  // ---------------------------------------------------------------
+  // Dwell time on tagged panels
+  // ---------------------------------------------------------------
+  function attachDwell(){
+    document.querySelectorAll('[data-track]').forEach(el=>{
+      const key=el.dataset.track;
+      el.addEventListener('mouseenter',()=>{ state.hoverStart[key]=now(); });
+      el.addEventListener('mouseleave',()=>{ if(state.hoverStart[key]){ state.dwell[key]=(state.dwell[key]||0)+(now()-state.hoverStart[key]); delete state.hoverStart[key]; renderDwell(); } });
+    });
+  }
+  function renderDwell(){
+    if(!els.dwellList) return;
+    const entries=Object.entries(state.dwell).sort((a,b)=>b[1]-a[1]);
+    const max=Math.max(1,...entries.map(e=>e[1]));
+    els.dwellList.innerHTML = entries.length? entries.map(([k,v])=>`<div class="dwellrow"><span>${k}</span><div class="dwellbar"><div style="width:${(v/max*100).toFixed(0)}%"></div></div><span>${(v/1000).toFixed(1)}s</span></div>`).join('') : '<p class="hint">Hover tracked elements to build attention data.</p>';
+  }
+
+  // ---------------------------------------------------------------
+  // Idle
+  // ---------------------------------------------------------------
+  function tickIdle(){ const since=now()-state.lastActivity; if(since>IDLE_MS && !state.idle){ state.idle=true; logEvent('User idle (5s+ no input)'); } }
+
+  // ---------------------------------------------------------------
+  // Sparklines
+  // ---------------------------------------------------------------
+  function pushSparkTick(){
+    state.speedHistory.push(Math.round(state._curSpeed||0)); state.speedHistory.shift();
+    state.cpsHistory.push(state.cpsBucket); state.cpsBucket=0; state.cpsHistory.shift();
+    drawSpark(els.sparkSpeed, state.speedHistory, '#8B5E34');
+    drawSpark(els.sparkClicks, state.cpsHistory, '#A8462C');
+  }
+  function drawSpark(canvas, data, color){
+    if(!canvas) return; const ctx=canvas.getContext('2d'); const w=canvas.width,h=canvas.height;
+    ctx.clearRect(0,0,w,h); const max=Math.max(1,...data);
+    ctx.beginPath(); data.forEach((v,i)=>{ const x=i/(data.length-1)*w; const y=h-(v/max)*h*0.9-2; i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); });
+    ctx.strokeStyle=color; ctx.lineWidth=2; ctx.stroke();
+    ctx.lineTo(w,h); ctx.lineTo(0,h); ctx.closePath(); ctx.fillStyle=color+'22'; ctx.fill();
+  }
+
+  // ---------------------------------------------------------------
+  // Score + gauge
+  // ---------------------------------------------------------------
+  function computeScore(){
+    let penalty = state.rageClicks*9 + state.deadClicks*4 + Math.min(30,state.directionChanges*0.35) + (state.idle?8:0);
+    state.score = Math.max(0, Math.min(100, Math.round(100-penalty)));
+    return state.score;
+  }
+  function renderGauge(){
+    if(!els.gaugeArc || !els.gaugeText) return;
+    const score=computeScore(); const circumference=2*Math.PI*54;
+    const offset=circumference*(1-score/100);
+    els.gaugeArc.style.strokeDashoffset=offset;
+    els.gaugeArc.style.stroke = score>=75?'#C88A3D':score>=40?'#D9A441':'#A8462C';
+    els.gaugeText.textContent=score;
+  }
+  function renderKM(){ if(!els.kmDonut) return; const total=state.keyboardEvents+state.mouseEvents||1; const pct=Math.round(state.keyboardEvents/total*100); els.kmDonut.style.setProperty('--pct',pct+'%'); if(els.kmLabel) els.kmLabel.textContent=`${pct}% keyboard`; }
+
+  // ---------------------------------------------------------------
+  // Fitts's Law
+  // ---------------------------------------------------------------
+  let fittsShownAt=null, fittsLastPos=null;
+  function placeFittsTarget(){
+    if(!els.fittsArena) return;
+    const arena=els.fittsArena; const size=22+Math.floor(Math.random()*54);
+    const x=Math.floor(Math.random()*Math.max(1,arena.clientWidth-size));
+    const y=Math.floor(Math.random()*Math.max(1,arena.clientHeight-size));
+    const btn=document.createElement('button'); btn.className='fitts-target';
+    btn.style.width=btn.style.height=size+'px'; btn.style.left=x+'px'; btn.style.top=y+'px';
+    btn.addEventListener('click',()=>onFittsHit(size,x,y));
+    arena.innerHTML=''; arena.appendChild(btn); fittsShownAt=now();
+  }
+  function onFittsHit(size,x,y){
+    const mt=now()-fittsShownAt;
+    let dist=120; if(fittsLastPos) dist=Math.hypot(x-fittsLastPos.x,y-fittsLastPos.y)||1;
+    fittsLastPos={x,y}; const id=Math.log2(dist/size+1);
+    state.fitts.unshift({id:id.toFixed(2),mt:Math.round(mt)}); state.fitts=state.fitts.slice(0,5);
+    renderFitts(); logEvent(`Fitts: ID ${id.toFixed(2)} bits, ${Math.round(mt)}ms`); placeFittsTarget();
+  }
+  function renderFitts(){ if(!els.fittsLog) return; els.fittsLog.innerHTML=state.fitts.map(f=>`<li>ID ${f.id} bits — ${f.mt} ms</li>`).join('')||'<li>Click the target to begin.</li>'; }
+
+  // ---------------------------------------------------------------
+  // Hick's Law
+  // ---------------------------------------------------------------
+  let hickShownAt=null;
+  function renderHickChoices(n){
+    if(!els.hickArena) return;
+    els.hickArena.innerHTML='';
+    for(let i=0;i<n;i++){ const b=document.createElement('button'); b.className='hick-choice'; b.textContent=i+1; b.addEventListener('click',()=>onHickChoice(n)); els.hickArena.appendChild(b); }
+    hickShownAt=now();
+  }
+  function onHickChoice(n){ const dt=now()-hickShownAt; state.hick.unshift({n,dt:Math.round(dt)}); state.hick=state.hick.slice(0,5); renderHick(); logEvent(`Hick: ${n} options, ${Math.round(dt)}ms`); renderHickChoices(n); }
+  function renderHick(){ if(!els.hickLog) return; els.hickLog.innerHTML=state.hick.map(h=>`<li>${h.n} opts (log\u2082=${Math.log2(h.n+1).toFixed(2)}) — ${h.dt} ms</li>`).join('')||'<li>Pick an option to begin.</li>'; }
+
+  // ---------------------------------------------------------------
+  // Miller's Law
+  // ---------------------------------------------------------------
+  function millerStart(){ if(!els.millerDisplay) return; state.miller.level=3; state.miller.stage='showing'; millerShow(); }
+  function millerShow(){
+    const seq=Array.from({length:state.miller.level},()=>Math.floor(Math.random()*10));
+    state.miller.sequence=seq; els.millerDisplay.textContent=seq.join(' ');
+    els.millerInput.value=''; els.millerInput.disabled=true; els.millerSubmit.disabled=true;
+    setTimeout(()=>{ els.millerDisplay.textContent='?'; els.millerInput.disabled=false; els.millerSubmit.disabled=false; els.millerInput.focus(); state.miller.stage='input'; }, 700+state.miller.level*350);
+  }
+  function millerSubmit(){
+    if(state.miller.stage!=='input') return;
+    const guess=els.millerInput.value.replace(/\D/g,'').split('').map(Number);
+    const correct = guess.length===state.miller.sequence.length && guess.every((d,i)=>d===state.miller.sequence[i]);
+    if(correct){ state.miller.best=Math.max(state.miller.best,state.miller.level); state.miller.level++; logEvent(`Miller test: span ${state.miller.level-1} correct`); els.millerResult.textContent=`Correct! Best span: ${state.miller.best}. Next: ${state.miller.level} digits.`; state.miller.stage='showing'; millerShow(); }
+    else { logEvent(`Miller test: failed at span ${state.miller.level}`); els.millerResult.textContent=`Not quite. Best span reached: ${state.miller.best}. Try again.`; state.miller.stage='idle'; els.millerDisplay.textContent='—'; }
+  }
+
+  // ---------------------------------------------------------------
+  // Recording, tagging, clip creation, session replay
+  // ---------------------------------------------------------------
+  function toggleRecording(){
+    state.recording = !state.recording;
+    if(els.recordBtn){ els.recordBtn.classList.toggle('is-on', state.recording); els.recordBtn.textContent = state.recording? '⏺ Recording…' : '⏺ Record session'; }
+    logEvent(state.recording? 'Recording started' : 'Recording stopped');
+  }
+  function addTag(){
+    const label = (els.tagInput && els.tagInput.value.trim()) || `Tag @ ${fmtTime(now()-state.startTime)}`;
+    const t = now()-state.startTime;
+    state.tags.push({t, label});
+    if(els.tagInput) els.tagInput.value='';
+    logEvent(`Tagged moment: "${label}"`);
+    renderTimeline();
+  }
+  function markClip(){
+    if(state.clipOpenStart==null){
+      state.clipOpenStart = now()-state.startTime;
+      if(els.clipBtn) els.clipBtn.textContent='⏹ End clip here';
+      logEvent('Clip start marked');
+    } else {
+      const start = state.clipOpenStart, end = now()-state.startTime;
+      state.clips.push({start, end: Math.max(end,start+200), label:`Clip ${state.clips.length+1}`});
+      state.clipOpenStart=null;
+      if(els.clipBtn) els.clipBtn.textContent='✂ Mark clip start';
+      logEvent(`Clip created: ${fmtTime(start)}–${fmtTime(end)}`);
+      renderTimeline(); renderClipList();
+    }
+  }
+  function renderClipList(){
+    if(!els.clipList) return;
+    els.clipList.innerHTML = state.clips.length? state.clips.map((c,i)=>
+      `<li><span>${c.label} (${fmtTime(c.start)}–${fmtTime(c.end)})</span><button class="link-btn" data-clip="${i}">Play</button></li>`
+    ).join('') : '<li class="hint">No clips yet — mark a start and end while recording.</li>';
+    els.clipList.querySelectorAll('[data-clip]').forEach(b=> b.addEventListener('click', ()=> playReplay(Number(b.dataset.clip))));
+  }
+  function renderTimeline(){
+    if(!els.timeline) return;
+    const total = Math.max(1, now()-state.startTime);
+    els.timeline.innerHTML = state.tags.map(tg=>
+      `<div class="tl-tag" style="left:${(tg.t/total*100).toFixed(2)}%" title="${tg.label}"></div>`
+    ).join('') + state.clips.map(c=>
+      `<div class="tl-clip" style="left:${(c.start/total*100).toFixed(2)}%; width:${((c.end-c.start)/total*100).toFixed(2)}%"></div>`
+    ).join('');
+  }
+
+  function playReplay(clipIndex){
+    if(!els.replayDot || !els.replayArena) return;
+    cancelAnimationFrame(state.replay.raf);
+    let evs = state.recordedEvents;
+    if(clipIndex!=null && state.clips[clipIndex]){
+      const {start,end} = state.clips[clipIndex];
+      evs = evs.filter(e=> e.t>=start && e.t<=end);
+    }
+    if(!evs.length){ logEvent('Nothing recorded yet to replay'); return; }
+    const t0 = evs[0].t;
+    const arenaRect = els.replayArena.getBoundingClientRect();
+    const sx = arenaRect.width/window.innerWidth, sy = arenaRect.height/window.innerHeight;
+    let i=0; const playStart=now();
+    state.replay.playing=true;
+    function frame(){
+      const elapsed = (now()-playStart)*state.replay.speed;
+      while(i<evs.length && (evs[i].t-t0) <= elapsed){
+        const e = evs[i];
+        if(e.type==='move'){ els.replayDot.style.left=(e.x*sx)+'px'; els.replayDot.style.top=(e.y*sy)+'px'; }
+        if(e.type==='click'){ spawnRipple(arenaRect.left+e.x*sx, arenaRect.top+e.y*sy, e.dead?'#A8462C':'#8B5E34'); }
+        i++;
+      }
+      if(els.replayProgress) els.replayProgress.style.width = Math.min(100, elapsed/(evs[evs.length-1].t-t0)*100)+'%';
+      if(i<evs.length){ state.replay.raf=requestAnimationFrame(frame); }
+      else { state.replay.playing=false; logEvent('Replay finished'); }
+    }
+    logEvent(clipIndex!=null? `Replaying clip ${clipIndex+1}` : 'Replaying full session');
+    frame();
+  }
+
+  // ---------------------------------------------------------------
+  // Form field analytics (attach to any form with [data-analytics-form])
+  // ---------------------------------------------------------------
+  function attachFormAnalytics(){
+    document.querySelectorAll('[data-analytics-form] input, [data-analytics-form] textarea, [data-analytics-form] select').forEach(field=>{
+      const key = field.name || field.id || field.placeholder || 'field';
+      state.formFields[key] = state.formFields[key] || { focusMs:0, refocuses:0, errors:0, completed:false };
+      let focusedAt=null;
+      field.addEventListener('focus', ()=>{ focusedAt=now(); state.formFields[key].refocuses++; });
+      field.addEventListener('blur', ()=>{
+        if(focusedAt) state.formFields[key].focusMs += now()-focusedAt;
+        if(field.value && field.value.trim()) state.formFields[key].completed=true;
+        renderFormAnalytics();
+      });
+      field.addEventListener('invalid', ()=>{ state.formFields[key].errors++; renderFormAnalytics(); logEvent(`Form error: "${key}"`); });
+    });
+    const form = document.querySelector('[data-analytics-form]');
+    if(form) form.addEventListener('submit', e=>{ e.preventDefault(); logEvent('Demo form submitted'); showAlert('Form submitted — analytics captured', 'good'); recordFunnelStep('submit'); });
+    renderFormAnalytics();
+  }
+  function renderFormAnalytics(){
+    if(!els.formAnalytics) return;
+    const rows = Object.entries(state.formFields);
+    els.formAnalytics.innerHTML = rows.length? rows.map(([k,v])=>
+      `<div class="dwellrow"><span>${k}</span><span>${(v.focusMs/1000).toFixed(1)}s · ${v.refocuses}× focus${v.errors?` · ${v.errors} err`:''}</span><span>${v.completed?'✓':'—'}</span></div>`
+    ).join('') : '<p class="hint">Interact with the demo form below to see field-level analytics.</p>';
+  }
+
+  // ---------------------------------------------------------------
+  // Exit intent
+  // ---------------------------------------------------------------
+  function checkExitIntent(e){
+    if(state.exitIntentShown) return;
+    if(e.clientY<=6 && (state.lastMouse && e.movementY<0 !== undefined)){
+      state.exitIntentShown=true;
+      if(els.exitModal) els.exitModal.hidden=false;
+      logEvent('Exit-intent triggered');
+    }
+  }
+  function dismissExitModal(){ if(els.exitModal) els.exitModal.hidden=true; }
+
+  // ---------------------------------------------------------------
+  // Funnel drop-off (aggregated across visits via localStorage)
+  // ---------------------------------------------------------------
+  const FUNNEL_KEY='pulselens_funnel_v1';
+  function loadFunnel(){ try{ return JSON.parse(localStorage.getItem(FUNNEL_KEY))||{}; }catch(e){ return {}; } }
+  function saveFunnel(f){ try{ localStorage.setItem(FUNNEL_KEY, JSON.stringify(f)); }catch(e){} }
+  const funnelReached = new Set();
+  function recordFunnelStep(step){
+    if(funnelReached.has(step)) return;
+    funnelReached.add(step);
+    const f = loadFunnel(); f[step]=(f[step]||0)+1; saveFunnel(f);
+    renderFunnel();
+  }
+  function attachFunnelObservers(){
+    const steps = [...document.querySelectorAll('[data-funnel-step]')];
+    recordFunnelStep('view'); // always reaches the page
+    if(!steps.length) { renderFunnel(); return; }
+    const io = new IntersectionObserver(entries=>{
+      entries.forEach(en=>{ if(en.isIntersecting) recordFunnelStep(en.target.dataset.funnelStep); });
+    }, {threshold:0.4});
+    steps.forEach(s=>io.observe(s));
+    renderFunnel();
+  }
+  function renderFunnel(){
+    if(!els.funnelChart) return;
+    const f = loadFunnel();
+    const order = ['view', ...[...document.querySelectorAll('[data-funnel-step]')].map(s=>s.dataset.funnelStep), 'submit'];
+    const seen = new Set(); const labels=[];
+    order.forEach(k=>{ if(!seen.has(k)){ seen.add(k); labels.push(k); } });
+    const max = Math.max(1, ...labels.map(l=>f[l]||0));
+    els.funnelChart.innerHTML = labels.map(l=>{
+      const v=f[l]||0; const pct=Math.round(v/max*100);
+      return `<div class="funnel-row"><span>${l}</span><div class="funnel-bar"><div style="width:${pct}%"></div></div><span>${v}</span></div>`;
+    }).join('');
+  }
+
+  // ---------------------------------------------------------------
+  // Feedback widget
+  // ---------------------------------------------------------------
+  function submitFeedback(rating, comment){
+    state.feedback.push({ t: now()-state.startTime, rating, comment });
+    logEvent(`Feedback received: ${rating}★`);
+    if(els.feedbackModal) els.feedbackModal.hidden=true;
+    showAlert('Thanks for the feedback!', 'good');
+  }
+
+  // ---------------------------------------------------------------
+  // Live chat (local demo — swap the two marked lines for a real
+  // WebSocket connection to support multi-user / live-agent chat)
+  // ---------------------------------------------------------------
+  function sendChat(text){
+    if(!text.trim()) return;
+    state.chatMessages.push({from:'you', text, t:now()});
+    renderChat();
+    logEvent('Chat message sent');
+    // --- DEMO ONLY: replace this block with a real WebSocket send/receive ---
+    setTimeout(()=>{
+      state.chatMessages.push({from:'agent', text:'Thanks — a researcher will follow up shortly. (Local demo reply; connect a WebSocket for real live chat.)', t:now()});
+      renderChat();
+    }, 700);
+    // -------------------------------------------------------------------
+  }
+  function renderChat(){
+    if(!els.chatLog) return;
+    els.chatLog.innerHTML = state.chatMessages.map(m=>`<div class="chat-msg ${m.from}">${m.text}</div>`).join('');
+    els.chatLog.scrollTop = els.chatLog.scrollHeight;
+  }
+
+  // ---------------------------------------------------------------
+  // Automated transcription (Web Speech API — Chrome/Edge only)
+  // ---------------------------------------------------------------
+  let recognizer=null, transcribing=false;
+  function toggleTranscription(){
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if(!SR){ if(els.transcriptBox) els.transcriptBox.innerHTML='<p class="hint">Speech recognition isn\'t supported in this browser — try Chrome or Edge.</p>'; return; }
+    if(transcribing){ recognizer && recognizer.stop(); return; }
+    recognizer = new SR(); recognizer.continuous=true; recognizer.interimResults=true; recognizer.lang='en-US';
+    recognizer.onresult = (ev)=>{
+      let finalText='';
+      for(let i=ev.resultIndex;i<ev.results.length;i++){ if(ev.results[i].isFinal) finalText += ev.results[i][0].transcript + ' '; }
+      if(finalText){ state.transcript.push({t:now()-state.startTime, text:finalText.trim()}); renderTranscript(); logEvent('Transcribed a segment'); }
+    };
+    recognizer.onerror = (ev)=>{ logEvent(`Transcription error: ${ev.error}`); };
+    recognizer.onend = ()=>{ transcribing=false; if(els.transcribeBtn) els.transcribeBtn.textContent='● Start transcription'; };
+    recognizer.start(); transcribing=true; if(els.transcribeBtn) els.transcribeBtn.textContent='■ Stop transcription';
+    logEvent('Transcription started');
+  }
+  function renderTranscript(){
+    if(!els.transcriptBox) return;
+    els.transcriptBox.innerHTML = state.transcript.map(s=>`<p><span class="t">${fmtTime(s.t)}</span> ${s.text}</p>`).join('') || '<p class="hint">Start transcription and speak — segments will appear here.</p>';
+  }
+
+  // ---------------------------------------------------------------
+  // Optional webcam facial-expression insight (best-effort; requires
+  // camera permission + face-api.js loading successfully from CDN)
+  // ---------------------------------------------------------------
+  let faceApiReady=false, faceLoop=null;
+  async function toggleCamera(){
+    if(state.camera.active){ stopCamera(); return; }
+    if(!els.cameraVideo) return;
+    els.cameraStatus && (els.cameraStatus.textContent='Requesting camera…');
+    try{
+      const stream = await navigator.mediaDevices.getUserMedia({video:{width:220,height:165}});
+      els.cameraVideo.srcObject = stream; await els.cameraVideo.play();
+      state.camera.active=true; if(els.cameraBtn) els.cameraBtn.textContent='Stop camera insights';
+      els.cameraStatus && (els.cameraStatus.textContent='Loading expression model…');
+      await ensureFaceApi();
+      els.cameraStatus && (els.cameraStatus.textContent = faceApiReady? 'Reading expressions…' : 'Model unavailable — camera preview only.');
+      if(faceApiReady) startFaceLoop();
+      logEvent('Camera insights enabled');
+    } catch(err){
+      els.cameraStatus && (els.cameraStatus.textContent = 'Camera permission denied or unavailable.');
+      logEvent('Camera insights: permission denied');
+    }
+  }
+  function stopCamera(){
+    state.camera.active=false; clearInterval(faceLoop); faceLoop=null;
+    const stream = els.cameraVideo && els.cameraVideo.srcObject;
+    if(stream) stream.getTracks().forEach(tr=>tr.stop());
+    if(els.cameraBtn) els.cameraBtn.textContent='Enable camera insights';
+    els.cameraStatus && (els.cameraStatus.textContent='');
+    logEvent('Camera insights disabled');
+  }
+  function ensureFaceApi(){
+    return new Promise(resolve=>{
+      if(window.faceapi){ faceApiReady=true; return resolve(); }
+      const s=document.createElement('script');
+      s.src='https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js';
+      s.onload=async ()=>{
+        try{
+          const MODEL_URL='https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights';
+          await Promise.all([
+            faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+            faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL)
+          ]);
+          faceApiReady=true;
+        } catch(e){ faceApiReady=false; }
+        resolve();
+      };
+      s.onerror=()=>{ faceApiReady=false; resolve(); };
+      document.head.appendChild(s);
+    });
+  }
+  function startFaceLoop(){
+    faceLoop = setInterval(async ()=>{
+      if(!state.camera.active || !window.faceapi) return;
+      try{
+        const res = await faceapi.detectSingleFace(els.cameraVideo, new faceapi.TinyFaceDetectorOptions()).withFaceExpressions();
+        if(res && res.expressions){
+          const top = Object.entries(res.expressions).sort((a,b)=>b[1]-a[1])[0];
+          state.camera.expression = top;
+          if(els.cameraExpr) els.cameraExpr.textContent = `${top[0]} (${Math.round(top[1]*100)}%)`;
+          if(els.cameraBar) els.cameraBar.style.width = Math.round(top[1]*100)+'%';
+        } else if(els.cameraExpr){ els.cameraExpr.textContent='No face detected'; }
+      } catch(e){ /* skip a bad frame */ }
+    }, 700);
+  }
+
+  // ---------------------------------------------------------------
+  // Export
+  // ---------------------------------------------------------------
+  function exportData(){
+    const payload={
+      durationMs:Math.round(now()-state.startTime), totalClicks:state.clicks.length, deadClicks:state.deadClicks, rageClicks:state.rageClicks,
+      maxScrollDepthPct:state.scrollMaxPct, mouseDistancePx:Math.round(state.mouseDistancePx), directionChanges:state.directionChanges,
+      keyboardEvents:state.keyboardEvents, mouseEvents:state.mouseEvents, usabilityScore:state.score, millerBestSpan:state.miller.best,
+      dwellMs:state.dwell, fittsTrials:state.fitts, hickTrials:state.hick,
+      tags:state.tags, clips:state.clips, recordedEventCount:state.recordedEvents.length,
+      formFields:state.formFields, feedback:state.feedback, transcript:state.transcript,
+      funnel: loadFunnel(),
+      events:state.events.map(e=>({label:e.label,tMs:Math.round(e.t-state.startTime)}))
+    };
+    const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+    const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='usability-session.json'; a.click(); URL.revokeObjectURL(url);
+    logEvent('Session exported');
+  }
+
+  function renderMetrics(){
+    if(els.time) els.time.textContent=fmtTime(now()-state.startTime);
+    if(els.clicks) els.clicks.textContent=state.clicks.length;
+    if(els.rage) els.rage.textContent=state.rageClicks;
+    if(els.dead) els.dead.textContent=state.deadClicks;
+    if(els.scroll) els.scroll.textContent=state.scrollMaxPct+'%';
+    if(els.distance) els.distance.textContent=Math.round(state.mouseDistancePx)+' px';
+    if(els.jitter) els.jitter.textContent=state.directionChanges;
+    if(els.status){ els.status.textContent=state.idle?'Idle':'Active'; els.status.dataset.state=state.idle?'idle':'active'; }
+    renderGauge(); renderKM(); renderTimeline();
+  }
+
+  function toggleTheme(){ const html=document.documentElement; const cur=html.dataset.theme==='light'?'dark':'light'; html.dataset.theme=cur; if(els.themeBtn) els.themeBtn.textContent = cur==='light'?'Dark mode':'Light mode'; }
+
+  function init(cfg){
+    Object.keys(cfg).forEach(k=> els[k]=document.getElementById(cfg[k]));
+    if(els.heat){ els.heat.width=window.innerWidth; els.heat.height=window.innerHeight; }
+    if(els.glow){ els.glow.width=window.innerWidth; els.glow.height=window.innerHeight; glowCtx=els.glow.getContext('2d'); }
+    window.addEventListener('resize',()=>{ if(els.heat){els.heat.width=window.innerWidth;els.heat.height=window.innerHeight;} if(els.glow){els.glow.width=window.innerWidth;els.glow.height=window.innerHeight;} });
+
+    window.addEventListener('mousemove', onMouseMove, {passive:true});
+    window.addEventListener('click', onClick);
+    window.addEventListener('scroll', onScroll, {passive:true});
+    window.addEventListener('keydown', onKey);
+    document.addEventListener('mouseleave', checkExitIntent);
+
+    setInterval(tickIdle,500);
+    setInterval(renderMetrics,400);
+    setInterval(renderActiveMap,300);
+    setInterval(fadeGlow,120);
+    setInterval(pushSparkTick,250);
+    setInterval(tickScrollDwell,500);
+
+    if(els.exportBtn) els.exportBtn.addEventListener('click',exportData);
+    if(els.themeBtn) els.themeBtn.addEventListener('click',toggleTheme);
+    if(els.hickSelect){ els.hickSelect.addEventListener('change',()=>renderHickChoices(Number(els.hickSelect.value))); renderHickChoices(Number(els.hickSelect.value)); }
+    if(els.millerStart) els.millerStart.addEventListener('click',millerStart);
+    if(els.millerSubmit) els.millerSubmit.addEventListener('click',millerSubmit);
+
+    if(els.recordBtn) els.recordBtn.addEventListener('click', toggleRecording);
+    if(els.tagBtn) els.tagBtn.addEventListener('click', addTag);
+    if(els.clipBtn) els.clipBtn.addEventListener('click', markClip);
+    if(els.replayPlayBtn) els.replayPlayBtn.addEventListener('click', ()=>playReplay(null));
+    if(els.replaySpeed) els.replaySpeed.addEventListener('change', e=> state.replay.speed=Number(e.target.value));
+
+    if(els.mapTabs) els.mapTabs.querySelectorAll('button').forEach(b=> b.addEventListener('click', ()=>setActiveMap(b.dataset.map)));
+
+    if(els.feedbackBtn) els.feedbackBtn.addEventListener('click', ()=> els.feedbackModal && (els.feedbackModal.hidden=false));
+    if(els.feedbackCancel) els.feedbackCancel.addEventListener('click', ()=> els.feedbackModal && (els.feedbackModal.hidden=true));
+    if(els.feedbackForm) els.feedbackForm.addEventListener('submit', e=>{
+      e.preventDefault();
+      const rating = els.feedbackForm.querySelector('input[name="rating"]:checked');
+      submitFeedback(rating? Number(rating.value):0, els.feedbackForm.querySelector('textarea').value);
+      els.feedbackForm.reset();
+    });
+
+    if(els.exitDismiss) els.exitDismiss.addEventListener('click', dismissExitModal);
+
+    if(els.chatToggle) els.chatToggle.addEventListener('click', ()=> els.chatPanel && els.chatPanel.classList.toggle('open'));
+    if(els.chatForm) els.chatForm.addEventListener('submit', e=>{ e.preventDefault(); sendChat(els.chatInput.value); els.chatInput.value=''; });
+
+    if(els.transcribeBtn) els.transcribeBtn.addEventListener('click', toggleTranscription);
+    if(els.cameraBtn) els.cameraBtn.addEventListener('click', toggleCamera);
+
+    attachDwell(); attachFormAnalytics(); attachFunnelObservers();
+    placeFittsTarget(); renderFitts(); renderHick(); renderDwell(); renderLog(); renderMetrics();
+    renderClipList(); renderFunnel(); renderMapTabs(); renderActiveMap(); renderChat(); renderTranscript();
+    logEvent('Advanced tracking session started');
+  }
+
+  return { init };
+})();
+
+</script>
+<script>
+  UsabilityTracker.init({
+    log:'log', ticker:'ticker', heat:'heat', glow:'glow', rippleLayer:'rippleLayer', alertBox:'alertBox',
+    time:'time', clicks:'clicks', rage:'rage', dead:'dead', scroll:'scroll', distance:'distance', jitter:'jitter', status:'status',
+    dwellList:'dwellList', fittsArena:'fittsArena', fittsLog:'fittsLog',
+    hickArena:'hickArena', hickSelect:'hickSelect', hickLog:'hickLog',
+    millerDisplay:'millerDisplay', millerInput:'millerInput', millerSubmit:'millerSubmit', millerStart:'millerStart', millerResult:'millerResult',
+    sparkSpeed:'sparkSpeed', sparkClicks:'sparkClicks', kmDonut:'kmDonut', kmLabel:'kmLabel',
+    gaugeArc:'gaugeArc', gaugeText:'gaugeText', exportBtn:'exportBtn', themeBtn:'themeBtn',
+    recordBtn:'recordBtn', tagBtn:'tagBtn', tagInput:'tagInput', clipBtn:'clipBtn', clipList:'clipList', timeline:'timeline',
+    replayArena:'replayArena', replayDot:'replayDot', replayProgress:'replayProgress', replayPlayBtn:'replayPlayBtn', replaySpeed:'replaySpeed',
+    mapTabs:'mapTabs', formAnalytics:'formAnalytics',
+    exitModal:'exitModal', exitDismiss:'exitDismiss',
+    feedbackBtn:'feedbackBtn', feedbackModal:'feedbackModal', feedbackForm:'feedbackForm', feedbackCancel:'feedbackCancel',
+    chatToggle:'chatToggle', chatPanel:'chatPanel', chatLog:'chatLog', chatForm:'chatForm', chatInput:'chatInput',
+    transcribeBtn:'transcribeBtn', transcriptBox:'transcriptBox',
+    cameraBtn:'cameraBtn', cameraVideo:'cameraVideo', cameraExpr:'cameraExpr', cameraBar:'cameraBar', cameraStatus:'cameraStatus',
+    funnelChart:'funnelChart'
+  });
+</script>
+
+<script>
+/* Behaviour Insights add-on — self-contained; does not touch UsabilityTracker. */
+(() => {
+ 'use strict';
+ const $ = id => document.getElementById(id);
+ const layer=$('bhLayer'), cv=$('bhCanvas'), cx=cv.getContext('2d'), dlg=$('bhDialog');
+ const S={startedAt:Date.now(),sid:'session_'+Math.random().toString(36).slice(2,10),events:[],clicks:[],moves:[],scrolls:[],pageVis:0,elVis:0,maxDepth:0,visual:'none',path:false,lastMove:0,lastScroll:0};
+ const MAX_MOVES=5000, MAX_EV=30000, LOG_LIMIT=100;
+ const iso=()=>new Date().toISOString();
+ const inPanel=e=>!!e.target.closest('#bhCard,#bhDialog');
+ const pg=e=>({pageX:e.pageX,pageY:e.pageY,clientX:e.clientX,clientY:e.clientY,viewportWidth:innerWidth,viewportHeight:innerHeight});
+ const secs=()=>Math.max(0,Math.floor((Date.now()-S.startedAt)/1000));
+ const fmt=s=>s<60?s+'s':Math.floor(s/60)+'m '+(s%60)+'s';
+ const cnt=t=>S.events.filter(e=>e.eventType===t).length;
+ function label(el){ if(!el||!el.tagName) return 'unknown'; let s=el.tagName.toLowerCase(); if(el.id) s+='#'+el.id; else if(typeof el.className==='string'&&el.className.trim()) s+='.'+el.className.trim().split(/\s+/)[0]; const t=(el.innerText||el.getAttribute('aria-label')||'').trim().replace(/\s+/g,' '); if(t) s+=' "'+(t.length>30?t.slice(0,30)+'…':t)+'"'; return s; }
+ function log(en){ const b=$('bhLog'),d=document.createElement('div'); d.textContent=en.timestamp+' | '+en.eventType+(en.label?' | '+en.label:''); b.prepend(d); while(b.children.length>LOG_LIMIT) b.lastElementChild.remove(); }
+ function rec(type,data={}){ const en={sessionId:S.sid,eventType:type,timestamp:iso(),timeOffsetMs:Date.now()-S.startedAt,...data}; S.events.push(en); if(S.events.length>MAX_EV) S.events.shift(); log(en); stats(); return en; }
+ function stats(){ $('bhTotal').textContent=S.events.length; $('bhClicks').textContent=S.clicks.length; $('bhMoves').textContent=S.moves.length; $('bhScrolls').textContent=S.scrolls.length; $('bhDepth').textContent=S.maxDepth+'%'; $('bhPageVis').textContent=S.pageVis; $('bhElVis').textContent=S.elVis; $('bhLast').textContent=S.clicks.length?S.clicks[S.clicks.length-1].label:'—'; }
+ function size(){ const w=Math.max(document.documentElement.scrollWidth,document.body.scrollWidth), h=Math.max(document.documentElement.scrollHeight,document.body.scrollHeight); if(layer.style.width===w+'px'&&layer.style.height===h+'px') return; layer.style.width=w+'px'; layer.style.height=h+'px'; cv.width=w; cv.height=h; draw(); }
+ function clearNodes(){ layer.querySelectorAll('.bh-dot,.bh-sc').forEach(n=>n.remove()); }
+ function dot(cls,x,y,lab){ const d=document.createElement('div'); d.className=cls; d.style.left=x+'px'; d.style.top=y+'px'; if(lab!==undefined){ const s=document.createElement('span'); s.textContent=lab; d.appendChild(s);} layer.appendChild(d); }
+ function render(){ clearNodes(); if(S.visual==='dots') S.clicks.forEach(c=>dot('bh-dot',c.pageX,c.pageY,c.n)); else if(S.visual==='scatter') S.clicks.forEach(c=>dot('bh-sc',c.pageX,c.pageY)); draw(); flags(); }
+ function flags(){ $('bhDots').classList.toggle('is-on',S.visual==='dots'); $('bhScatter').classList.toggle('is-on',S.visual==='scatter'); $('bhPath').classList.toggle('is-on',S.path); }
+ function draw(){ if(!cv.width) return; cx.clearRect(0,0,cv.width,cv.height); if(!S.path||S.moves.length<2) return;
+  const r=getComputedStyle(document.documentElement), brand=r.getPropertyValue('--brand').trim()||'#8B5E34', ink=r.getPropertyValue('--ink-0').trim()||'#000', bg=r.getPropertyValue('--bg-1').trim()||'#fff', good=r.getPropertyValue('--good').trim()||'#C88A3D', alert=r.getPropertyValue('--alert').trim()||'#A8462C';
+  const pts=[S.moves[0]]; for(const m of S.moves){ const p=pts[pts.length-1]; if(Math.hypot(m.pageX-p.pageX,m.pageY-p.pageY)>=45) pts.push(m); }
+  const last=S.moves[S.moves.length-1], tail=pts[pts.length-1]; if(Math.hypot(last.pageX-tail.pageX,last.pageY-tail.pageY)>8) pts.push(last); if(pts.length<2) return;
+  cx.strokeStyle=brand; cx.globalAlpha=.75; cx.lineWidth=2.5; cx.lineJoin='round'; cx.lineCap='round'; cx.beginPath(); pts.forEach((p,i)=>i?cx.lineTo(p.pageX,p.pageY):cx.moveTo(p.pageX,p.pageY)); cx.stroke(); cx.globalAlpha=1; cx.fillStyle=brand;
+  for(let i=1;i<pts.length;i++){ const a=pts[i-1],b=pts[i]; cx.save(); cx.translate((a.pageX+b.pageX)/2,(a.pageY+b.pageY)/2); cx.rotate(Math.atan2(b.pageY-a.pageY,b.pageX-a.pageX)); cx.beginPath(); cx.moveTo(9,0); cx.lineTo(-6,-5); cx.lineTo(-6,5); cx.closePath(); cx.fill(); cx.restore(); }
+  const mk=(p,t,f)=>{ cx.beginPath(); cx.arc(p.pageX,p.pageY,6,0,Math.PI*2); cx.fillStyle=f; cx.fill(); cx.lineWidth=3; cx.strokeStyle=bg; cx.stroke(); cx.font='bold 12px sans-serif'; cx.lineWidth=4; cx.strokeStyle=bg; cx.strokeText(t,p.pageX+10,p.pageY-9); cx.fillStyle=ink; cx.fillText(t,p.pageX+10,p.pageY-9); };
+  mk(pts[0],'Start',good); mk(pts[pts.length-1],'End',alert); }
+ function payload(){ return {sessionId:S.sid,startedAt:new Date(S.startedAt).toISOString(),durationSeconds:secs(),summary:{clicks:S.clicks.length,savedMousePoints:S.moves.length,scrollEvents:S.scrolls.length,maxScrollDepthPct:S.maxDepth,pageVisibilityChanges:S.pageVis,cardVisibilityEvents:S.elVis},clicks:S.clicks,mousePoints:S.moves,scrollEvents:S.scrolls,events:S.events}; }
+ function topEls(){ const m={}; S.clicks.forEach(c=>m[c.label]=(m[c.label]||0)+1); return Object.entries(m).sort((a,b)=>b[1]-a[1]).slice(0,10); }
+ function download(){ const u=URL.createObjectURL(new Blob([JSON.stringify(payload(),null,2)],{type:'application/json'})); const a=document.createElement('a'); a.href=u; a.download='behaviour-insights.json'; a.click(); URL.revokeObjectURL(u); rec('export',{label:'JSON exported'}); }
+ function summary(){ $('bsClicks').textContent=S.clicks.length; $('bsMoves').textContent=S.moves.length; $('bsScrolls').textContent=S.scrolls.length; $('bsDepth').textContent=S.maxDepth+'%'; $('bsTime').textContent=fmt(secs()); $('bsRate').textContent=(S.clicks.length/Math.max(1/60,secs()/60)).toFixed(1);
+  const tb=$('bsRows'); tb.textContent=''; const rows=topEls(); if(!rows.length){ const tr=document.createElement('tr'),td=document.createElement('td'); td.colSpan=2; td.textContent='No clicks yet'; tr.appendChild(td); tb.appendChild(tr);} rows.forEach(([k,v])=>{ const tr=document.createElement('tr'),a=document.createElement('td'),b=document.createElement('td'); a.textContent=k; b.textContent=v; tr.append(a,b); tb.appendChild(tr); });
+  if(dlg.showModal) dlg.showModal(); else dlg.setAttribute('open',''); }
+
+ document.addEventListener('click',e=>{ if(inPanel(e)) return; const el=e.target,c=pg(e),k={n:S.clicks.length+1,x:c.clientX,y:c.clientY,pageX:c.pageX,pageY:c.pageY,element:el.tagName,id:el.id||'',className:typeof el.className==='string'?el.className:'',text:(el.innerText||'').trim().slice(0,60),label:label(el),time:iso()}; S.clicks.push(k); rec('click',{...c,label:k.label,targetTag:k.element,targetId:k.id,targetText:k.text,clickNumber:k.n}); if(S.visual!=='none') render(); },true);
+ document.addEventListener('mousemove',e=>{ if(inPanel(e)) return; const t=performance.now(); if(t-S.lastMove<60||S.moves.length>=MAX_MOVES) return; S.lastMove=t; const c=pg(e); S.moves.push({...c,time:iso()}); rec('mousemove',{x:c.pageX,y:c.pageY,clientX:c.clientX,clientY:c.clientY}); if(S.path) draw(); });
+ window.addEventListener('scroll',()=>{ const d=document.documentElement,y=window.scrollY||d.scrollTop||0,depth=Math.min(100,Math.round(((y+innerHeight)/Math.max(1,d.scrollHeight))*100)); S.maxDepth=Math.max(S.maxDepth,depth); const t=performance.now(); if(t-S.lastScroll>=180){ S.lastScroll=t; S.scrolls.push({scrollY:y,depth,time:iso()}); rec('scroll',{scrollY:y,scrollPercentage:depth,documentHeight:d.scrollHeight,viewportHeight:innerHeight}); } stats(); size(); },{passive:true});
+ document.addEventListener('visibilitychange',()=>{ S.pageVis++; rec('page_visibility',{label:document.visibilityState,state:document.visibilityState}); });
+ if('IntersectionObserver' in window){ const seen=new Map(), io=new IntersectionObserver(es=>es.forEach(en=>{ const name=en.target.dataset.track||'card', now=en.isIntersecting; if(seen.get(en.target)===now) return; seen.set(en.target,now); S.elVis++; rec('element_visibility',{label:name+' '+(now?'entered':'left')+' viewport',visible:now,ratio:Math.round(en.intersectionRatio*100)/100}); }),{threshold:.25}); document.querySelectorAll('.card[data-track]').forEach(n=>io.observe(n)); }
+
+ $('bhSummary').onclick=summary; $('bsClose').onclick=()=>dlg.close(); $('bsExport').onclick=download; $('bhExport').onclick=download;
+ $('bhDots').onclick=()=>{ S.visual=S.visual==='dots'?'none':'dots'; render(); };
+ $('bhScatter').onclick=()=>{ S.visual=S.visual==='scatter'?'none':'scatter'; render(); };
+ $('bhPath').onclick=()=>{ S.path=!S.path; render(); };
+ $('bhClear').onclick=()=>{ S.visual='none'; S.path=false; render(); };
+ $('bhUndo').onclick=()=>{ if(!S.clicks.length) return; S.clicks.pop(); for(let i=S.events.length-1;i>=0;i--) if(S.events[i].eventType==='click'){ S.events.splice(i,1); break; } stats(); render(); };
+ $('bhView').onclick=()=>{ $('bhJson').value=JSON.stringify(payload(),null,2); };
+ $('bhReset').onclick=()=>{ Object.assign(S,{startedAt:Date.now(),events:[],clicks:[],moves:[],scrolls:[],pageVis:0,elVis:0,maxDepth:0}); $('bhLog').textContent='Insights data reset.'; $('bhJson').value=''; stats(); render(); };
+ addEventListener('resize',size); setInterval(size,1000); size(); stats(); flags();
+})();
+</script>
+</body>
+</html>

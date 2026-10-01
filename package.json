@@ -1,0 +1,12 @@
+{
+  "name": "pulselens-pro",
+  "version": "1.0.0",
+  "description": "Real-time usability and behaviour tracker: rage/dead clicks, usability score, heatmaps, session replay, funnel drop-off, HCI laws and page-level behaviour insights. Single-file, no dependencies.",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx --yes serve . -l 3000"
+  },
+  "keywords": ["usability", "ux-analytics", "heatmap", "session-replay", "rage-click", "hci", "fitts-law", "hicks-law", "vanilla-js"],
+  "license": "MIT",
+  "private": true
+}
